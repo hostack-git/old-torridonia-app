@@ -25,15 +25,12 @@ function InvitePage() {
 
   useEffect(() => {
     (async () => {
-      // Clear any existing session so the query runs as anon role (avoids RLS mismatch
-      // when the volunteer already has an active session from a previous invite attempt)
-      await hostackSupabase.auth.signOut();
-
+      // Allow both first-time and returning volunteers — invite links are permanent re-entry tokens.
+      // Do NOT sign out here; signing out destroys a valid session (the bug that broke daily access).
       const { data } = await hostackSupabase
         .from("staff_invitations")
         .select("id, token, name, role, used_at, expires_at")
         .eq("token", token)
-        .is("used_at", null)
         .gt("expires_at", new Date().toISOString())
         .maybeSingle();
       setInvitation((data as Invitation | null) ?? null);
@@ -82,10 +79,13 @@ function InvitePage() {
           .eq("id", volId);
       }
 
-      await hostackSupabase
-        .from("staff_invitations")
-        .update({ used_at: new Date().toISOString() })
-        .eq("token", token);
+      // Only mark as used the first time
+      if (!invitation.used_at) {
+        await hostackSupabase
+          .from("staff_invitations")
+          .update({ used_at: new Date().toISOString() })
+          .eq("token", token);
+      }
 
       // Check if volunteer already has contact info
       const { data: vol } = await hostackSupabase
@@ -133,9 +133,9 @@ function InvitePage() {
             </div>
           ) : !invitation ? (
             <div className="space-y-3">
-              <h1 className="font-display text-2xl font-semibold">Invalid Link</h1>
+              <h1 className="font-display text-2xl font-semibold">Link Expired</h1>
               <p className="text-sm text-muted-foreground">
-                This link has already been used or has expired. Contact your manager to receive a new one.
+                This link has expired. Contact your manager to receive a new one.
               </p>
             </div>
           ) : (
@@ -144,14 +144,14 @@ function InvitePage() {
                 Hi {invitation.name}! 👋
               </h1>
               <p className="text-base text-muted-foreground">
-                Your manager has invited you to the Torridonia app
+                {invitation.used_at ? "Welcome back to the Torridonia app" : "Your manager has invited you to the Torridonia app"}
               </p>
               <Button
                 onClick={enter}
                 disabled={submitting}
                 className="w-full bg-accent text-accent-foreground hover:bg-accent/90 h-12 text-base"
               >
-                {submitting ? "Loading…" : "Enter the app"}
+                {submitting ? "Loading…" : invitation.used_at ? "Enter the app" : "Enter the app"}
               </Button>
             </div>
           )}

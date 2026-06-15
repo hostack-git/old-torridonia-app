@@ -205,12 +205,11 @@ function VolunteerDashboard() {
           setRoleType(volByName.role_type);
           setVolunteerStatus(volByName.status);
           setVolunteerLinked(true);
-          // Self-heal: write auth_user_id so future logins use the fast path
+          // Always update auth_user_id to current session (re-links after session expiry or re-login)
           hostackSupabase
             .from("volunteers")
             .update({ auth_user_id: user.id })
             .eq("id", volByName.id)
-            .is("auth_user_id", null)
             .then(() => {});
           return;
         }

@@ -20,7 +20,7 @@ function AppLayout() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) navigate({ to: IS_DEMO ? "/demo" : "/login" });
+    if (!user) navigate({ to: IS_DEMO ? "/demo" : "/volunteer-access" });
     else if (!isVolunteer && profile && !profile.onboarded) navigate({ to: "/onboarding" });
     if (!loading && isVolunteer && (loc.pathname.startsWith("/app/admin") || loc.pathname.startsWith("/app/rooms"))) {
       navigate({ to: "/app/dashboard" });

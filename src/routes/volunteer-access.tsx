@@ -30,30 +30,50 @@ function VolunteerAccess() {
         },
       });
 
-      // Direct client-side volunteer binding — no server function needed
-      const { data: volunteer } = await hostackSupabase
+      // Name-based lookup: exact then first-name prefix fallback
+      const trimmedName = name.trim();
+      let volunteer: { id: string } | null = null;
+
+      const { data: exact } = await hostackSupabase
         .from("volunteers")
         .select("id")
         .eq("property_id", TORRIDONIA_PROPERTY_ID)
-        .ilike("name", name.trim())
+        .eq("status", "active")
+        .ilike("name", trimmedName)
         .maybeSingle();
+      volunteer = (exact as { id: string } | null) ?? null;
 
-      let profileComplete = false;
-      if (volunteer?.id) {
-        await hostackSupabase
+      if (!volunteer) {
+        const firstName = trimmedName.split(" ")[0];
+        const { data: prefix } = await hostackSupabase
           .from("volunteers")
-          .update({ auth_user_id: anon.user.id })
-          .eq("id", volunteer.id);
-        // Check if contact info is already on file
-        const { data: vol } = await hostackSupabase
-          .from("volunteers")
-          .select("whatsapp_number, email")
-          .eq("id", volunteer.id)
-          .single();
-        profileComplete = !!(vol as { whatsapp_number?: string | null } | null)?.whatsapp_number;
+          .select("id")
+          .eq("property_id", TORRIDONIA_PROPERTY_ID)
+          .eq("status", "active")
+          .ilike("name", `${firstName}%`)
+          .maybeSingle();
+        volunteer = (prefix as { id: string } | null) ?? null;
       }
 
-      // If volunteer has no WhatsApp → ask for contact info
+      if (!volunteer?.id) {
+        await hostackSupabase.auth.signOut();
+        toast.error("Name not found. Check the spelling or contact your manager.");
+        setLoading(false);
+        return;
+      }
+
+      await hostackSupabase
+        .from("volunteers")
+        .update({ auth_user_id: anon.user.id })
+        .eq("id", volunteer.id);
+
+      const { data: vol } = await hostackSupabase
+        .from("volunteers")
+        .select("whatsapp_number")
+        .eq("id", volunteer.id)
+        .single();
+      const profileComplete = !!(vol as { whatsapp_number?: string | null } | null)?.whatsapp_number;
+
       if (!profileComplete) {
         navigate({ to: "/join" });
       } else {
@@ -83,20 +103,20 @@ function VolunteerAccess() {
       <div className="flex items-center justify-center p-8">
         <form onSubmit={onSubmit} className="w-full max-w-sm space-y-6">
           <div>
-            <h1 className="font-display text-3xl font-semibold">Login as Volunteer</h1>
+            <h1 className="font-display text-3xl font-semibold">Welcome back</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Click on the link send by your manager, or scan the QR code in the property.
+              Enter your name exactly as your manager registered you.
             </p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="name">What is your name?</Label>
+            <Label htmlFor="name">Your name</Label>
             <Input
               id="name"
               required
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your Name"
+              placeholder="e.g. Roxana"
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
