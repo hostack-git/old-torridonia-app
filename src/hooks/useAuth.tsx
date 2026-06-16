@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { hostackSupabase, IS_DEMO } from "@/integrations/hostack/client";
+import { hostackSupabase, IS_DEMO, TORRIDONIA_PROPERTY_ID } from "@/integrations/hostack/client";
 
 type Profile = {
   id: string;
@@ -39,28 +39,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isVolunteer, setIsVolunteer] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const applyAnonymousVolunteer = (currentUser: User) => {
+  const applyAnonymousVolunteer = async (currentUser: User) => {
     const meta = currentUser.user_metadata as { demo_admin?: boolean; full_name?: string } | undefined;
     const isDemoAdmin = meta?.demo_admin === true;
     setUser(currentUser);
-    setIsVolunteer(!isDemoAdmin);
-    setIsAdmin(isDemoAdmin);
-    setIsRoomManager(isDemoAdmin);
+
     if (isDemoAdmin) {
+      setIsVolunteer(false);
+      setIsAdmin(true);
+      setIsRoomManager(true);
       setProfile({
         id: currentUser.id,
         full_name: meta?.full_name ?? 'Demo Manager',
-        email: null,
-        phone: null,
-        language: 'en',
-        nationality: null,
-        passport_number: null,
-        passport_url: null,
-        avatar_url: null,
-        bio: null,
-        onboarded: true,
+        email: null, phone: null, language: 'en', nationality: null,
+        passport_number: null, passport_url: null, avatar_url: null, bio: null, onboarded: true,
       });
-    } else {
+      setLoading(false);
+      return;
+    }
+
+    // Check if this anonymous user is registered as a property manager in the volunteers table
+    try {
+      const { data: vol } = await hostackSupabase
+        .from('volunteers')
+        .select('role_type, name')
+        .eq('property_id', TORRIDONIA_PROPERTY_ID)
+        .eq('auth_user_id', currentUser.id)
+        .maybeSingle();
+
+      const isManagerVol = (vol as { role_type?: string | null } | null)?.role_type === 'Manager';
+      if (isManagerVol) {
+        const volName = (vol as { name?: string | null } | null)?.name ?? meta?.full_name ?? 'Manager';
+        setIsAdmin(true);
+        setIsRoomManager(true);
+        setIsVolunteer(false);
+        setProfile({
+          id: currentUser.id,
+          full_name: volName,
+          email: null, phone: null, language: 'en', nationality: null,
+          passport_number: null, passport_url: null, avatar_url: null, bio: null, onboarded: true,
+        });
+      } else {
+        setIsAdmin(false);
+        setIsRoomManager(false);
+        setIsVolunteer(true);
+        setProfile(null);
+      }
+    } catch {
+      setIsAdmin(false);
+      setIsRoomManager(false);
+      setIsVolunteer(true);
       setProfile(null);
     }
     setLoading(false);
@@ -68,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = async (currentUser: User) => {
     if (currentUser.email === null || !currentUser.email) {
-      applyAnonymousVolunteer(currentUser);
+      await applyAnonymousVolunteer(currentUser);
       return;
     }
 
@@ -135,9 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) {
-        // Anonymous volunteer: skip staff/role queries (RLS blocks them)
+        // Anonymous user: async check to detect manager-role volunteers
         if (s.user.email === null || !s.user.email) {
-          applyAnonymousVolunteer(s.user);
+          applyAnonymousVolunteer(s.user).catch(() => setLoading(false));
           return;
         } else {
           setIsVolunteer(false);
@@ -158,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       if (s?.user) {
         if (s.user.email === null || !s.user.email) {
-          applyAnonymousVolunteer(s.user);
+          applyAnonymousVolunteer(s.user).catch(() => setLoading(false));
           return;
         } else {
           setIsVolunteer(false);
