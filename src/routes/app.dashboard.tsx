@@ -178,23 +178,25 @@ function VolunteerDashboard() {
         type VolRow = { id: string; role_type: string | null; status: string | null };
         let volByName: VolRow | null = null;
 
-        // 1. Exact case-insensitive match
+        // 1. Exact case-insensitive match — active only to avoid collisions with
+        //    former volunteers who share the same first name
         const { data: exact } = await hostackSupabase
           .from("volunteers")
           .select("id, role_type, status")
           .eq("property_id", TORRIDONIA_PROPERTY_ID)
+          .eq("status", "active")
           .ilike("name", fullName)
           .maybeSingle();
         volByName = (exact as VolRow | null) ?? null;
 
-        // 2. First-name prefix fallback (handles "Roxana" stored as first name only
-        //    in user_metadata vs "Roxana LastName" in volunteers table, or vice versa)
+        // 2. First-name prefix fallback (active only)
         if (!volByName) {
           const firstName = fullName.trim().split(" ")[0];
           const { data: prefix } = await hostackSupabase
             .from("volunteers")
             .select("id, role_type, status")
             .eq("property_id", TORRIDONIA_PROPERTY_ID)
+            .eq("status", "active")
             .ilike("name", `${firstName}%`)
             .maybeSingle();
           volByName = (prefix as VolRow | null) ?? null;
