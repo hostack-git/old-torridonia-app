@@ -1394,39 +1394,6 @@ function OverviewSection() {
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div className="rounded-2xl border bg-card p-5 shadow-soft space-y-3">
-          <h3 className="font-medium text-sm flex items-center gap-2"><UserX className="h-4 w-4 text-amber-500" /> Departures this week</h3>
-          {stats.upcomingDepartures.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No departures this week.</p>
-          ) : (
-            <ul className="divide-y">
-              {stats.upcomingDepartures.map((v) => (
-                <li key={v.name} className="py-2 flex items-center justify-between text-sm">
-                  <span className="font-medium">{v.name}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700">{fmtDate(v.end_date)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="rounded-2xl border bg-card p-5 shadow-soft space-y-3">
-          <h3 className="font-medium text-sm flex items-center gap-2"><UserPlus className="h-4 w-4 text-emerald-500" /> Arrivals this week</h3>
-          {stats.upcomingArrivals.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No arrivals this week.</p>
-          ) : (
-            <ul className="divide-y">
-              {stats.upcomingArrivals.map((v) => (
-                <li key={v.name} className="py-2 flex items-center justify-between text-sm">
-                  <span className="font-medium">{v.name}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700">{fmtDate(v.start_date)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
       {/* Active volunteers dialog — with deactivate */}
       <Dialog open={showVolunteers} onOpenChange={setShowVolunteers}>
         <DialogContent className="max-w-lg">
